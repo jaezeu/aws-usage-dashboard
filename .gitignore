@@ -1,0 +1,27 @@
+# Real cohort data — student IAM usernames, activity, and account_id live here.
+# Never commit it. The dashboard renders from buildSample() without it.
+data.json
+
+# Incremental CloudTrail event cache (raw student events) + its coverage sidecar.
+# Same sensitivity as data.json — never commit. Speeds up re-runs by fetching
+# only the delta since the last run.
+.ct-cache.jsonl*
+
+# Local Claude Code instructions — carries the real group names / cohort identity.
+# Kept out of the public repo (it's not needed to run the project).
+CLAUDE.md
+
+# Windows alternate-data-stream metadata (created when files are downloaded).
+*.Zone.Identifier
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
