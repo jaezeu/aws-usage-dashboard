@@ -9,20 +9,31 @@ collect.py  --(CloudTrail LookupEvents)-->  data.json  -->  dashboard.html (stat
 ```
 
 ## Files
-- `cloudtrail-cohort-dashboard.html` — the dashboard. Opens with seeded sample
+- `cloudtrail-cohort-dashboard.html` - the dashboard. Opens with seeded sample
   data so you can demo it immediately; loads real `data.json` when present.
-- `scripts/collect.py` — reads CloudTrail, writes `data.json`.
-- `scripts/refresh.sh` — collect + serve locally in one step. Pass groups and
+- `scripts/collect.py` - reads CloudTrail, writes `data.json`.
+- `scripts/refresh.sh` - collect + serve locally in one step. Pass groups and
   regions at runtime; nothing is hardcoded.
-- `requirements.txt` — the single Python dependency (`boto3`).
-- `LICENSE` — MIT.
+- `requirements.txt` - the single Python dependency (`boto3`).
+- `LICENSE` - MIT.
+
+## Prerequisites
+- **Python 3** (3.8+) and `pip`.
+- **Working AWS credentials** for an account whose CloudTrail you can read -
+  an SSO profile (`aws sso login`), a named profile in `~/.aws/credentials`, or
+  ambient creds (instance/execution role). The collector reads them from the
+  default credential chain; pass `--profile` or `export AWS_PROFILE` to pick one.
+- The IAM principal those credentials resolve to needs read-only
+  `cloudtrail:LookupEvents`, `iam:GetGroup`, and `sts:GetCallerIdentity`
+  (see [What the IAM principal running the collector needs](#what-the-iam-principal-running-the-collector-needs)).
+- A POSIX shell for `refresh.sh` (WSL, macOS, or Linux).
 
 ## Run locally (WSL)
-You pass the IAM groups (and their home regions) on the command line — there's no
+You pass the IAM groups (and their home regions) on the command line - there's no
 config file to edit.
 
 ```bash
-# from the repo root — boto3 is the only dependency (a venv is optional):
+# from the repo root - boto3 is the only dependency (a venv is optional):
 python3 -m venv .venv && source .venv/bin/activate    # optional but tidy
 pip install -r requirements.txt
 
@@ -34,7 +45,7 @@ export AWS_PROFILE=my-sso-profile        # or use --profile below
   --groups group-a group-b \
   --home-regions ap-southeast-1 us-east-1 \
   --cohort "My Cohort"
-# …or pass the profile through instead of exporting it:
+# ...or pass the profile through instead of exporting it:
 #   ./refresh.sh --groups group-a group-b --home-regions ap-southeast-1 us-east-1 --profile my-sso-profile
 ```
 
@@ -42,7 +53,7 @@ Replace `group-a group-b` with your real IAM group names and
 `ap-southeast-1 us-east-1` with each group's home region (same order). Then open
 `http://localhost:8800/cloudtrail-cohort-dashboard.html`.
 
-The window is a rolling **30 days** (override with `--days N`) — run it once a
+The window is a rolling **30 days** (override with `--days N`) - run it once a
 month, or any time you want fresh numbers. `refresh.sh` writes `data.json` to the
 repo root next to the HTML and serves the root, so the link above always works.
 First run does a full CloudTrail pull; re-runs only fetch the delta since the last
@@ -51,7 +62,7 @@ run (incremental cache, on by default), so they're far quicker.
 `refresh.sh` forwards every flag except `--port` straight to `collect.py`; run
 `./refresh.sh --help` for the full list. Because the groups operate in different
 regions and CloudTrail `LookupEvents` is **per-region**, the collector scans every
-group's home region and merges the results — otherwise one group's activity would
+group's home region and merges the results - otherwise one group's activity would
 be invisible. Calls a student makes outside their group's home region are flagged
 as **off-region** (sprawl) in the dashboard.
 
@@ -68,7 +79,7 @@ The ones you'll actually reach for:
 | Dial back parallelism if you hit throttling | `--max-workers 4` |
 | Serve on a different port | `--port 9000` |
 
-Example — last 7 days, writes only, also scanning `eu-west-1`:
+Example - last 7 days, writes only, also scanning `eu-west-1`:
 
 ```bash
 ./refresh.sh --groups group-a group-b --home-regions ap-southeast-1 us-east-1 \
@@ -96,7 +107,7 @@ Read-only:
 > straying further afield. Anything outside a group's home region shows as
 > off-region regardless; `--scan-regions` just widens where the collector looks.
 
-## Portability — moving to AWS later
+## Portability - moving to AWS later
 The front end needs no changes: it's just static files reading a sibling
 `data.json`. Two moves and you're hosted:
 
@@ -105,7 +116,7 @@ The front end needs no changes: it's just static files reading a sibling
    with Cognito/Lambda@Edge since it's student data).
 2. **Run the collector on a schedule.** Put `collect.py` on Lambda (or a small
    ECS/Fargate task) on an EventBridge cron, writing `data.json` to the same S3
-   bucket. **No code change** — drop the `--profile` flag and it uses the
+   bucket. **No code change** - drop the `--profile` flag and it uses the
    execution role via the default credential chain. That's the whole reason the
    collector reads creds ambiently rather than hard-coding a profile.
 
@@ -113,7 +124,7 @@ So local and cloud run the *same* `collect.py`; only the credential source and
 the `data.json` destination differ.
 
 ## Notes / limits
-- `running_resources` and `stuck_resources` are `0` from CloudTrail alone — the
+- `running_resources` and `stuck_resources` are `0` from CloudTrail alone - the
   trail records *actions*, not *current state*. To make the stuck-resource
   "kill list" reflect reality, add a second describe/Config-based collector that
   snapshots live resources and merges those two fields in. Left as a clean
@@ -123,7 +134,7 @@ the `data.json` destination differ.
   collector to query a CloudTrail Lake / Athena table over the same schema.
 - The collector queries CloudTrail **once per group member** with a server-side
   `Username` filter, so it only pages through the students' own events rather than
-  the whole account's activity — much faster on a busy shared account. Caveat: the
+  the whole account's activity - much faster on a busy shared account. Caveat: the
   `Username` attribute matches the name CloudTrail records (the IAM user name, or
   the role-session name for assumed roles). If a student operates under an assumed
   role whose session name differs from their IAM user name, that activity won't be
@@ -133,24 +144,24 @@ the `data.json` destination differ.
   query count. `--scan-regions` extras still query everyone (sprawl detection).
 - Per-user CloudTrail queries run **in parallel** (`--max-workers`, default 8).
   `LookupEvents` is throttled at ~2 req/sec **per region**, so this is bounded by
-  that quota, not linear — boto3 adaptive retries absorb throttling. The collector
+  that quota, not linear - boto3 adaptive retries absorb throttling. The collector
   prints a `[timing]` breakdown (auth, IAM mapping, fetch wall-clock, effective
   parallelism, slowest queries) so you can see where time goes.
 - **Incremental cache** (`--cache PATH`, auto-enabled by `refresh.sh`): CloudTrail
   events are immutable, so the collector persists every fetched event (keyed by
   `eventID`) and on the next run only fetches events **newer than the last run**
   (minus a 20-min overlap for ingestion lag, deduped by `eventID`). First run is
-  full; re-runs fetch just the delta — a re-run minutes later is near-instant. The
+  full; re-runs fetch just the delta - a re-run minutes later is near-instant. The
   cache stores **all** events pre-`--writes-only` filter (the readOnly filter is
   applied at aggregation), so an all-events run after a writes-only one stays
   correct. Coverage is tracked in a `.meta` sidecar (not inferred from event
   times, so quiet periods are handled). Use `--no-cache` to force a full fetch.
-  The cache holds raw student events — it's **gitignored** like `data.json`.
+  The cache holds raw student events - it's **gitignored** like `data.json`.
 - The real ceiling is `LookupEvents` itself (per-region 2 req/sec + per-page
   filtered-lookup latency). For a step-change in speed, switch the collector to
   CloudTrail **Lake** or **Athena** (one SQL query, same `data.json` schema).
-- **`--writes-only`** counts only mutating events (`readOnly=false`) — what students
-  actually create, change or delete — and drops read-only describes/lists/gets.
+- **`--writes-only`** counts only mutating events (`readOnly=false`) - what students
+  actually create, change or delete - and drops read-only describes/lists/gets.
   `LookupEvents` permits a single attribute per call (already used for `Username`),
   so reads are filtered client-side on each event's `readOnly` field. With this on,
   call counts, the IaC ratio and the timeline reflect *writes only*, and the
