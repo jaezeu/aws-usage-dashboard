@@ -8,6 +8,14 @@ split across two IAM groups. A small Python collector turns CloudTrail into a
 collect.py  --(CloudTrail LookupEvents)-->  data.json  -->  dashboard.html (static)
 ```
 
+## Sample Dashboards
+
+The following screenshots are shown with sample data to prevent leaking sensitive data about the users.
+
+<img width="1597" height="1173" alt="image" src="https://github.com/user-attachments/assets/6f0b78a7-64d3-4f46-afa9-1129559f8d23" />
+<img width="1473" height="474" alt="image" src="https://github.com/user-attachments/assets/8b0f67d9-730b-48f3-9cfb-9560b4deaf54" />
+
+
 ## Files
 - `cloudtrail-cohort-dashboard.html` - the dashboard. Opens with seeded sample
   data so you can demo it immediately; loads real `data.json` when present.
